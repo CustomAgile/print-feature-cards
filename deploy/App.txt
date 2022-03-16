@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Print Feature Cards</title>
+    <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Sat Jan 30 2016 16:55:06 GMT-0800 (PST) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Sat Jan 30 2016 16:55:06 GMT-0800 (PST)";
+        var CHECKSUM = 21148265215;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350, 
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log("_checkChecksum", container);
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if (! app.isExternal() ) {
+                
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('Rally.technicalservices.CardTemplate',{
+    extend: 'Ext.XTemplate',
+
+    constructor: function(config) {
+
+        this.callParent([
+            '<div class="artifact">',
+                '<div class="r1">',
+                    '<tpl if="this.displayFields.r1left>',
+                        '<span class="r1left">{[this.getContent(values, this.displayFields.r1left)]}</span>',
+                    '</tpl><tpl if="this.displayFields.r1right">',
+                        '<span class="r1right">{[this.getContent(values, this.displayFields.r1right)]}</span>',
+                    '</tpl>',
+                '</div>',
+                '<div class="r2">',
+                    '<tpl if="this.displayFields.r2left>',
+                        '<span class="r2left">{[this.getContent(values, this.displayFields.r2left)]}</span>',
+                    '</tpl><tpl if="this.displayFields.r2middle">',
+                        '<span class="r2middle">{[this.getContent(values, this.displayFields.r2middle)]}</span>',
+                    '</tpl><tpl if="this.displayFields.r2right">',
+                        '<span class="r2right">{[this.getContent(values, this.displayFields.r2right)]}</span>',
+                    '</tpl>',
+                '</div>',
+                '<div class="r3">',
+                    '<tpl if="this.displayFields.r3middle">',
+                        '<span class="r3middle">{[this.getContent(values, this.displayFields.r3middle)]}</span>',
+                    '</tpl>',
+                '</div>',
+                '<div class="r4">',
+                    '<tpl if="this.displayFields.r4middle">',
+                        '<span class="r4middle">{[this.getContent(values, this.displayFields.r4middle)]}</span>',
+                    '</tpl>',
+                '</div>',
+            '</div>',
+
+            {
+                getContent: function(recordData, displayField) {
+
+                    var val = recordData.get(displayField.dataIndex) || "&nbsp;";
+                    if (displayField){
+                        if (Ext.isFunction(displayField.dataIndex)){
+                            val = displayField.dataIndex(recordData);
+                        } else {
+                            val = recordData.get(displayField.dataIndex) || "&nbsp;";
+                        }
+                        
+                        if (displayField.maxLength > 0){
+                            val = Ext.String.ellipsis(val, displayField.maxLength, false);
+                        }
+                    }
+                    //console.log('getContent', recordData, displayField, val);
+                    return val;
+                },
+                displayFields: config.displayFields
+            }
+        ]);
+    }
+});
+Ext.define('Rally.technicalservices.data.Chunker',{
+    MAX_CHUNK_SIZE: 25,
+    logger: new Rally.technicalservices.Logger(),
+    config: {
+        model: null,
+        fetch: null,
+        chunkField: null,
+        chunkOids: null
+    },
+    constructor: function(config){
+        this.initConfig(config);
+    },
+    load: function(){
+        var deferred = Ext.create('Deft.Deferred');
+        var oids = this.chunkOids;
+        var promises = [];
+
+        if (oids.length > this.MAX_CHUNK_SIZE){
+            var start_idx = 0;
+            while(start_idx < oids.length){
+                chunk_values = oids.splice(start_idx, this.MAX_CHUNK_SIZE);
+                promises.push(this._fetchRecords(chunk_values));
+            }
+        } else {
+            promises.push(this._fetchRecords(oids));
+        }
+
+        if (promises.length == 0){
+            deferred.resolve();
+        }
+        Deft.Promise.all(promises).then({
+            scope: this,
+            success: function(records) {
+                var data = _.flatten(records);
+                deferred.resolve(data);
+            },
+            failure: function(){
+                deferred.resolve([]);
+            }
+        });
+        return deferred;
+    },
+    _fetchRecords: function(object_ids){
+        var deferred = Ext.create('Deft.Deferred');
+        var filters = [];
+        Ext.each(object_ids, function(oid){
+            filters.push({property: this.chunkField, value: oid});
+        },this);
+        var wsFilters = Rally.data.wsapi.Filter.or(filters);
+
+        Ext.create('Rally.data.wsapi.Store',{
+            model: this.model,
+            fetch: this.fetch,
+            autoLoad: true,
+            context: {project: null},
+            filters: wsFilters,
+            listeners: {
+                scope: this,
+                load: function(store, records, success){
+                    this.logger.log('chunking success', success);
+                    deferred.resolve(records);
+                }
+            }
+        });
+        return deferred;
+    }
+});
+Ext.define('Rally.technicalservices.CardDisplayField',{
+    dataIndex: undefined,
+    maxLength: undefined,
+    position: undefined,
+    cls: undefined
+});
+
+Ext.override(Rally.ui.filter.plugin.CustomFilterRowController, {
+        _buildDataForOperator: function(records, field) {
+            console.log('_buildDataForOperator', records, field);
+            
+            var operatorNames = _.map(records, function(record){
+                return record.get('OperatorName');
+            });
+
+            var validOperatorNames = _.filter(operatorNames, function(operatorName){
+                return operatorName !== 'containsall' && operatorName !== 'containsany';
+            });
+
+            return _.map(validOperatorNames, function(operatorName) {
+                return {
+                    name: operatorName,
+                    displayName: field.isCollection() ? operatorName.replace('contains', '=') : operatorName
+                };
+            }).concat(this.view.additionalOperators || []);
+        }
+
+});
+
+Ext.override(Rally.ui.filter.CustomFilterPanel, {
+    _getItems: function() {
+        console.log(this.boxWidths);
+        return [
+            {
+                xtype: 'container',
+                cls: 'custom-filter-header',
+                layout: 'column',
+                defaults: {
+                    xtype: 'component',
+                    cls: 'filter-panel-label'
+                },
+                items: [
+                    {
+                        height: 1,
+                        width: 30
+                    },
+                    {
+                        html: 'Field',
+                        width: this.boxWidths.field + 5 || 137
+                    },
+                    {
+                        html: 'Operator',
+                        width: this.boxWidths.operator + 5|| 137
+                    },
+                    {
+                        html: 'Value',
+                        width: this.boxWidths.value + 5 || 135
+                    }
+                ]
+            },
+            {
+                xtype: 'container',
+                itemId: 'customFilterRows'
+            }
+        ];
+    }
+});
+
+Ext.define('Rally.technicalservices.window.PrintCards',{
+    extend: 'Ext.Window',
+    logger: new Rally.technicalservices.Logger(),
+    truncateText: '...',
+    config: {
+        title: 'Print Feature Cards',
+        records: null,
+        styleSheetTitle: "printCards",
+        currentDocument: null,
+        /**
+         *  Array of the following:
+         *  dataIndex
+         *  maxLength (default 0)
+         *  cls (defaults are: card-title, content,
+         */
+        displayFields: null
+    },
+    constructor: function(config){
+        this.initConfig(config);
+    },
+    show: function(){
+        var options = "toolbar=1,menubar=1,scrollbars=yes,scrolling=yes,resizable=yes,width=1000,height=500";
+        this.win = window.open('',this.title);
+
+        var html = this._buildCardsHTML();
+
+        this.win.document.write('<html><head><title>' + this.title + '</title>');
+        this.win.document.write('<style>');
+        this.win.document.write(this._getStyleSheet(this.styleSheetTitle));
+        this.win.document.write('</style>');
+        this.win.document.write('</head><body class="landscape">');
+        this.win.document.write(html);
+        this.win.document.write('</body></html>');
+    },
+    
+    print: function() {
+        if ( !this.win ) {
+            this.show();
+        }
+        this.win.print();
+        this.win.close();
+    },
+    
+    _buildCardsHTML: function() {
+
+        var html = '';
+        var total_cards = this.records.length;
+        var card_num = 0;
+
+        var t = Ext.create('Rally.technicalservices.CardTemplate', {
+            displayFields: Rally.technicalservices.CardConfiguration.displayFields
+        });
+
+        Ext.each(this.records, function(r){
+
+            // changing to record so that setting new fields doesn't get lost
+            //html += t.apply(r.getData());
+            html += t.apply(r);
+
+            card_num ++;
+            if ((card_num) % 4 === 0) {
+                html += '<div class=pb></div>';
+            } else if (card_num === total_cards - 1) {
+                html += '<div class=cb>&nbsp;</div>';
+            }
+        },this);
+        //console.log('html',html);
+        return html;
+    },
+    _getStyleSheet: function(styleSheetTitle) {
+        this.logger.log('getStyleSheet');
+        var styleSheet;
+        // var docs = Ext.getDoc();
+        var elems = this.currentDocument.query('style');
+
+        for (var i=0; i< elems.length; i++){
+            if (elems[i].title == styleSheetTitle){
+                styleSheet = elems[i];
+            }
+        }
+        return styleSheet.innerHTML;
+    }
+});
+Ext.define('Rally.techservices.QueryButton', {
+    extend: 'Rally.ui.Button',
+    alias:'widget.tsquerybutton',
+    config:{
+        border: 0,
+        
+        text: '<span class="icon-filter"> </span>Q',
+
+        cls: 'small-icon secondary rly-small',
+        
+        margin: '3px 10px 3px 0px',
+        /**
+         * @cfg {String} elTooltip
+         * Rendered as html title attribute on the Button's top-level element if toolTipConfig not specified.
+         * This is different than the the tooltip config in that it will put the tooltip on the top-level el rather than the button html element.
+         */
+        elTooltip: 'Click to make a raw query',
+        
+        query: ''
+    },
+    
+    initComponent: function() {
+        var me = this;
+
+        me.addEvents(
+            /**
+             * @event querychanged
+             * Fires when the query is changed via the dialog
+             * @param {Rally.techservices.QueryButton} this
+             * @param {String} query The text in the query
+             */
+            'querychanged'
+        );
+        
+        me.callParent(arguments);
+
+    },
+    
+    onRender: function() {
+        this.callParent(arguments);
+        
+        var btn = this.el;
+        this.mon(btn, this.clickEvent, this._showQueryDialog, this);
+    },
+    
+    _showQueryDialog: function() {
+        var button = this;
+        
+        this.dialog = Ext.create('Rally.ui.dialog.Dialog', {
+            id       : 'popup',
+            width    : 400,
+            height   : 200,
+            title    : 'Manual Query',
+            autoShow : true,
+            closable : true,
+            layout   : 'border',
+            items    : [{
+                xtype  : 'textareafield',
+                id     : 'querytext',
+                region : 'center',
+                value  : button.query
+            }, {
+                xtype : 'container',
+                region: 'south',
+                layout: 'hbox',
+                items : [
+                    { xtype: 'container', flex: 1},
+                    { 
+                        xtype: 'rallybutton', 
+                        cls: 'secondary', 
+                        text:'Cancel', 
+                        listeners: { scope: button, click: button._closeDialog } 
+                    },
+                    { 
+                        xtype: 'rallybutton', 
+                        cls: 'primary',   
+                        text:'Save', 
+                        listeners: { scope: button, click: button._setQuery } 
+                    },
+                    { xtype: 'container', flex: 1}
+                ]
+            }]
+        });
+    },
+    
+    _closeDialog: function() {
+        this.dialog && this.dialog.destroy();
+    },
+    
+    getQuery: function() {
+        return this.query;
+    },
+    
+    _setQuery: function() {
+        var me = this;
+        
+        var field = me.dialog.down('textareafield');
+        me.query = field.getValue();
+        
+        if ( Ext.isEmpty(me.query) ) {
+            me.removeCls('primary');
+            me.addCls('secondary');
+        } else {
+            me.removeCls('secondary');
+            me.addCls('primary');
+        }
+        me.fireEvent('querychanged', me, me.query);
+        
+        this._closeDialog();
+    }
+});
+Ext.define("print-feature-cards", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 5 },
+    items: [
+        {xtype:'container',itemId:'display_box'},
+        {xtype:'container', itemId:'message_box', tpl: '<tpl>{message</tpl>' }
+    ],
+
+    features: [],
+    
+    launch: function() {
+        var container = this.down('#display_box');
+        
+        this.filterButton = container.add({
+            xtype: 'rallycustomfilterbutton',
+            modelNames: ['PortfolioItem/Feature'],
+            context: this.context,
+            listeners: {
+                customfilter: {
+                    fn: this._setFilter,
+                    single: false,
+                    scope: this
+                }
+            }
+        });
+       
+        this.queryButton = container.add({
+            xtype:'tsquerybutton',
+            listeners: {
+                scope: this,
+                querychanged: this._setFilter
+            }
+        });
+        
+        container.add({
+            xtype: 'rallybutton',
+            text: 'Open Print Cards',
+            scope: this,
+            margin: 3,
+            handler: this._gatherData
+        });
+    },
+    
+    _setFilter: function(button) {
+        if ( this.filterButton) {
+            this.filters = this.filterButton.getFilters();
+        }
+        
+        if ( this.queryButton && !Ext.isEmpty(this.queryButton.getQuery()) ) {
+            this.filterButton && this.filterButton.setDisabled(true);
+            this.filters = Rally.data.wsapi.Filter.fromQueryString(this.queryButton.getQuery());
+        }
+        
+        if ( this.queryButton && Ext.isEmpty(this.queryButton.getQuery()) ) {
+            this.filterButton && this.filterButton.setDisabled(false);
+        }
+    },
+    
+    _gatherData: function(){
+        var feature_fields = Rally.technicalservices.CardConfiguration.fetchFields;
+        this.setLoading("Gathering data...");
+        
+        Deft.Chain.sequence([
+            this._loadFeatures,
+            this._loadMilestones,
+            this._loadStories
+        ],this).then({
+            scope: this,
+            success: function(results) {
+                this._openPrintCards(results[0]);
+                this.setLoading(false);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Problem printing cards", msg);
+                this.setLoading(false);
+            }
+        });
+
+    },
+    
+    _loadFeatures: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var config = {
+            model: 'PortfolioItem/Feature',
+            fetch: Rally.technicalservices.CardConfiguration.fetchFields
+        };
+        
+        if ( this.filters ) {
+            config.filters = this.filters;
+        }
+        
+        this._loadWsapiRecords(config).then({
+            scope: this,
+            success: function(features) {
+                this.logger.log(Ext.String.format("Found {0} features", features.length));
+                this.features = features;
+                deferred.resolve(features);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+
+        return deferred.promise;
+    },
+    
+    _loadMilestones: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var milestone_names = [];
+        Ext.Array.each(this.features, function(feature){
+            if ( feature.get('Milestones') && feature.get('Milestones').Count > 0 ) {
+                Ext.Array.each(feature.get('Milestones')._tagsNameArray, function(tag){
+                    milestone_names.push(tag.Name);
+                });
+            }
+        });
+        
+        this.logger.log('milestones:', milestone_names);
+        
+        if ( milestone_names.length === 0 ) {
+            return [];
+        }
+        
+        var unique_names = Ext.Array.unique( Ext.Array.flatten(milestone_names) );
+        
+        var config = {
+            model: 'Milestone',
+            fetch: ['Name','TargetDate']
+        };
+        
+        this.logger.log('--');
+        if ( unique_names.length > 0 ) {
+            var filter_array = Ext.Array.map(unique_names, function(name){
+                return { property:'Name', value: name };
+            });
+            
+            config.filters = Rally.data.wsapi.Filter.or(filter_array);
+        }
+                
+        this._loadWsapiRecords(config).then({
+            scope: this,
+            success: function(milestones) {
+                var milestones_by_name = {};
+                Ext.Array.each(milestones, function(milestone){
+                    milestones_by_name[milestone.get('Name')] = milestone;
+                });
+                
+                Ext.Array.each(this.features, function(feature){
+                    feature.set('__Milestone', "");
+                    
+                    if ( feature.get('Milestones') && feature.get('Milestones').Count > 0 ) {
+                        var ms = feature.get('Milestones')._tagsNameArray[0];
+                        feature.set('__Milestone', milestones_by_name[ms.Name]);
+                    }
+                });
+                
+                deferred.resolve(milestones);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _loadStories: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        this.logger.log('_loadStories');
+        
+        if ( this.features.length === 0 ) {
+            return [];
+        }
+        
+        var feature_oids = Ext.Array.map(this.features, function(feature){
+            return feature.get('ObjectID');
+        });
+        
+        var chunker = Ext.create('Rally.technicalservices.data.Chunker',{
+            chunkOids: feature_oids,
+            chunkField: 'Feature.ObjectID',
+            fetch: ['Name','Feature','Project','ObjectID','c_System'],
+            model: 'HierarchicalRequirement'
+        });
+        chunker.load().then({
+            scope: this,
+            success: function(stories){
+                this.logger.log('chunker success', stories);
+                var stories_by_feature_oid = {};
+                Ext.Array.each(stories, function(story){
+                    if (!stories_by_feature_oid[story.get('Feature').ObjectID]) {
+                        stories_by_feature_oid[story.get('Feature').ObjectID] = [];
+                    }
+                    stories_by_feature_oid[story.get('Feature').ObjectID].push(story);
+                });
+                                
+                Ext.Array.each(this.features, function(feature){
+                    var feature_oid = feature.get('ObjectID');
+                    var stories = stories_by_feature_oid[feature_oid] || [];
+                    
+                    feature.set('__Stories', stories);
+                });
+                
+                deferred.resolve(stories);
+            },
+            failure: function(){
+                alert('failed');
+                deferred.reject('failed');
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _loadWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        this.logger.log('_loadWsapiRecords', config);
+        
+        var me = this;
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _openPrintCards: function(records){
+        this.logger.log('_openPrintCards', records);
+        
+        var fields =[{
+            dataIndex: 'Name',
+            maxLength: 200,
+            cls: 'card-title'
+        },{
+            dataIndex: 'FormattedID',
+            cls: 'card-id'
+        }];
+
+        var win = Ext.create('Rally.technicalservices.window.PrintCards',{
+            records: records,
+            displayFields: fields,
+            currentDocument: Ext.getDoc()
+        });
+        win.show();
+        win.print();
+    },
+    
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        Ext.apply(this, settings);
+        this.launch();
+    }
+});
+
+Ext.define('Rally.technicalservices.CardConfiguration',{
+    singleton: true,
+
+    fetchFields: ["FormattedID","Name","State","Owner","Description",
+        "Notes","Milestones","TargetDate","Project",'c_MoSCoW'],
+    
+    
+    displayFields: {
+        r1left: {
+            dataIndex: function(record){
+                return record.get('FormattedID') + ': ' +record.get('Name');
+            },
+            maxLength: 125
+        },
+        r1right: {
+            dataIndex: function(recordData){     
+                var milestones = recordData.get('Milestones');
+                
+                if ( Ext.isEmpty(milestones) || milestones.Count === 0 || Ext.isEmpty(recordData.get('__Milestone')) ) {
+                    return "No Entry";
+                }
+                var target_date = recordData.get('__Milestone').get('TargetDate');
+                var quarters_by_month = [1,1,1,2,2,2,3,3,3,4,4,4];
+                
+                return Ext.String.format("{0}Q{1}.{2}",
+                    Ext.Date.format(target_date, 'Y'),
+                    quarters_by_month[parseInt( Ext.Date.format(target_date,'m') ) - 1],
+                    Ext.Date.format(target_date, 'M')
+                );
+            }
+        },
+        r2left: {
+            dataIndex: function(recordData) { return recordData.get('Project').Name; },
+            maxLength: 40
+        },
+        r2middle: {
+            dataIndex: function(recordData){
+                return recordData.get('Owner') && recordData.get('Owner')._refObjectName || "None";
+            },
+            maxLength: 30
+        },
+        r2right: {
+            dataIndex: function(recordData) {
+                return recordData.get('c_MoSCoW') || "None";
+            }
+        },
+        r3middle: {
+            dataIndex: function(recordData) {
+                var description = recordData.get('Description');
+                
+                if ( Ext.isEmpty(description) ) {
+                    return "--";
+                }
+                
+                return description.replace(/<(?:.|\n)*?>/gm, '');
+            },
+            maxLength: 325
+        },
+        r4middle: {
+            dataIndex: function(recordData) {
+                var template = "SYSTEMS: ({0}) {1}<br/>" +
+                               "TEAMS : ({2}) {3}"
+                
+                var asset_list = [];
+                var team_list = [];
+                
+                var stories = recordData.get('__Stories');
+                if ( !Ext.isEmpty(stories) && stories.length > 0 ) {
+                    team_list = Ext.Array.map(stories, function(story) { return story.get("Project").Name; });
+                    team_list = Ext.Array.unique(team_list);
+                    
+                    asset_list = [];
+                    Ext.Array.each(stories, function(story) { 
+                        var system = story.get('c_System');
+                        if ( !Ext.isEmpty(system) ) {
+                            asset_list.push(system); 
+                        }
+                    });
+                    asset_list = Ext.Array.unique(asset_list);
+                }
+                
+                return Ext.String.format(template, 
+                    asset_list.length,
+                    asset_list.join(', '),
+                    team_list.length,
+                    team_list.join(', ')
+                );
+            },
+            maxLength: 255
+        }
+    }
+});
+
+            
+               Rally.launchApp('print-feature-cards', {
+                   name: 'Print Feature Cards'
+               });
+        });
+    </script>
+    
+
+<style type="text/css" title="printCards">
+/* PLEASE LEAVE THIS STYLESHEET INLINE SINCE TITLE IS NECESSARY */
+@media print {
+    #interface {
+        display: none;
+    }
+
+    .pb {
+        page-break-after: always;
+        clear: both;
+    }
+}
+
+#interface, #printSection {
+    margin: 20px;
+}
+
+html {
+    background-color: #fff;
+    color: #000;
+    font: 14pt / 1.26 Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #fff;
+    margin: 0;
+    padding: 0;
+}
+
+.cb {
+    clear: both;
+}
+
+.artifact {
+    background-color: #fff;
+    border: 2px solid #000;
+    float: left;
+    height: 3.7in;
+    margin: 0.1in 0.1in 0.1in 0.1in;
+    position: relative;
+    overflow: hidden;
+    width: 4.9in;
+}
+.r1 {
+    border: 1px;
+    border-bottom-style: solid;
+    height: 60px;
+    font-family: NotoSans, Helvetica, Arial;
+    font-size: 11pt;
+    color: #000000;
+}
+.r1left {
+    display: table-cell;
+    padding-top: 0.5em;
+    width: 3.6in;
+    padding-left: 0.5em;
+    overflow: hidden;
+    border-right: 1px solid #000;
+    height: 60px;
+}
+.r1right {
+    display: table-cell;
+    padding-top: 0.5em;
+    padding-left: 0.5em;
+}
+.r2{
+    border: 1px;
+    border-bottom-style: solid;
+    height: 40px;
+    font-family: NotoSans, Helvetica, Arial;
+    font-size: 10pt;
+}
+.r2left {
+    display: table-cell;
+    width: 1.7in;
+    padding-top: 0.5em;
+    padding-left: 0.5em;
+    border-right: 1px solid #000;
+    height: 40px;
+}
+.r2middle {
+    display: table-cell;
+    width: 1.5in;
+    padding-top: 0.5em;
+    padding-left: 0.5em;
+    border-right: 1px solid #000;
+}
+.r2right {
+    display: table-cell;
+    padding-top: 0.5em;
+    padding-left: 0.5em;
+}
+.r3{
+    border: 1px;
+    border-bottom-style: solid;
+    height: 140px;
+    font-family: NotoSans, Helvetica, Arial;
+    font-size: 12pt;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+}
+.r3middle {
+    display: block;
+    vertical-align: middle;
+    text-align: left;
+}
+.r4{
+    border: 1px;
+    border-bottom-style: solid;
+    height: 120px;
+    font-family: NotoSans, Helvetica, Arial;
+    font-size: 12pt;
+    padding-left: 0.5em;
+}
+.r4middle {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: left;
+}
+.header {
+    border: 1px;
+    border-bottom-style: solid;
+    display: table-cell;
+    height: 40px;
+    vertical-align: middle;
+    width: 4.3in;
+}
+
+.card-title {
+    font: bold 28px Genova, sans-serif;
+    padding-top: 0.5em;
+    text-align: center;
+}
+
+.description {
+    float: left;
+    font: 12pt Georgia, sans-serif;
+    margin: 0.25em auto 0 auto;
+    padding-left: 1.0em;
+    padding-right: 1.0em;
+    overflow-y: hidden;
+    width: 100%;
+    word-wrap: break-word;
+}
+
+.owner {
+    float: right;
+    height: 40px;
+}
+
+.ownerText {
+    float: right;
+    font: 14pt / 1.26 Arial, Helvetica, sans-serif;
+    margin-right: 0.3em;
+    margin-top: 0.3em;
+}
+
+.card-id {
+    float: left;
+    font: 14pt / 1.26 Arial, Helvetica, sans-serif;
+    margin-left: 0.25em;
+    margin-top: 0.3em;
+}
+
+.estimate {
+    bottom: 0.5em;
+    position: absolute;
+    right: 0.5em;
+}
+
+.content {
+    height: 2.4in;
+    overflow: hidden;
+    width: 3.7in;
+}
+</style>
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+
+</head>
+<body></body>
+</html>
